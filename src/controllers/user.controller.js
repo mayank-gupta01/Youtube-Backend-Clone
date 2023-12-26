@@ -437,6 +437,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       )
     );
 });
+
 export {
   registerUser,
   loginUser,
@@ -448,4 +449,5 @@ export {
   updateUserAvatar,
   updateUserCoverImage,
   getUserChannelProfile,
+  getWatchHistory,
 };
