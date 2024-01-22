@@ -53,18 +53,14 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   const subscribedChannels = await Subscription.find({
     channel: channelId,
-  });
-
-  const subscriberList = subscribedChannels.map(
-    (subscribedChannel) => subscribedChannel.subscriber
-  );
+  }).select("-channel");
 
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        subscriberList,
+        subscribedChannels,
         "subscriber list of channel fetched successfully"
       )
     );
@@ -82,19 +78,15 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   }
   const subscribedChannels = await Subscription.find({
     subscriber: subscriberId,
-  });
+  }).select("-subscriber");
   // console.log(subscribedChannels);
-
-  const subscribedChannelList = subscribedChannels.map(
-    (subscribedChannel) => subscribedChannel.channel
-  );
 
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        subscribedChannelList,
+        subscribedChannels,
         "subscribed channel List fetched successfully"
       )
     );
