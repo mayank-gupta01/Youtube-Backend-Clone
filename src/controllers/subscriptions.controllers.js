@@ -10,7 +10,8 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   // TODO: toggle subscription
   // valid channelId (is it exist in user)
   // check is user already subscribed
-  // if exist then create a document in Subscription model
+  // if user is already subscribed then unsubscribe it (remove the document from db)
+  // if user not subscribed then subscribed it (create document in db)
 
   const user = await User.findById(channelId);
 
@@ -23,9 +24,16 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   });
 
   if (isAlreadySubscribed) {
-    throw new ApiError(400, "User is already subscribed to this channel");
+    // unsubscribe the user
+    await Subscription.findByIdAndDelete(isAlreadySubscribed._id);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "User unsubscribed successfully"));
   }
-  const toggleSubscribed = await Subscription.create({
+
+  //subscribe the user
+  const userSubscribed = await Subscription.create({
     subscriber: req.user._id,
     channel: channelId,
   });
@@ -35,7 +43,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        toggleSubscribed,
+        userSubscribed,
         "User Subscribed channel successfully"
       )
     );
@@ -51,9 +59,37 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Provided channelId is not exist");
   }
 
-  const subscribedChannels = await Subscription.find({
-    channel: channelId,
-  }).select("-channel");
+  const subscribedChannels = await Subscription.aggregate([
+    {
+      $match: {
+        channel: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscriber",
+        foreignField: "_id",
+        as: "subscriber",
+      },
+    },
+    {
+      $addFields: {
+        subscriberUsername: {
+          $arrayElemAt: ["$subscriber.userName", 0],
+        },
+        subscriberAvatar: {
+          $arrayElemAt: ["$subscriber.avatar", 0],
+        },
+      },
+    },
+    {
+      $project: {
+        subscriberUsername: 1,
+        subscriberAvatar: 1,
+      },
+    },
+  ]);
 
   return res
     .status(200)
@@ -76,10 +112,37 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(400, "User does not exist with this Id");
   }
-  const subscribedChannels = await Subscription.find({
-    subscriber: subscriberId,
-  }).select("-subscriber");
-  // console.log(subscribedChannels);
+  const subscribedChannels = await Subscription.aggregate([
+    {
+      $match: {
+        subscriber: new mongoose.Types.ObjectId(subscriberId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "channel",
+        foreignField: "_id",
+        as: "channel",
+      },
+    },
+    {
+      $addFields: {
+        channelUsername: {
+          $arrayElemAt: ["$channel.userName", 0],
+        },
+        channelAvatar: {
+          $arrayElemAt: ["$channel.avatar", 0],
+        },
+      },
+    },
+    {
+      $project: {
+        channelAvatar: 1,
+        channelUsername: 1,
+      },
+    },
+  ]);
 
   return res
     .status(200)
