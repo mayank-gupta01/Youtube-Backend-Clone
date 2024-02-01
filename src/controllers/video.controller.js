@@ -87,7 +87,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
       },
     },
     { $skip: (page - 1) * limit },
-    { $limit: page * limit },
+    { $limit: +limit },
   ];
 
   if (userId) {

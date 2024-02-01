@@ -44,7 +44,14 @@ const getVideoComments = asyncHandler(async (req, res) => {
         content: 1,
         username: 1,
         avatar: 1,
+        updatedAt: 1,
       },
+    },
+    {
+      $skip: (page - 1) * limit,
+    },
+    {
+      $limit: +limit,
     },
   ]);
 
