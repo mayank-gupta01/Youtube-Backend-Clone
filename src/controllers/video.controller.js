@@ -22,7 +22,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   //sortBy : it is used to sort the data by any attribute(title, description, duration, views, updatedAt)
   //sortType : whether the sorted data should be asc or desc order
   //userId : this is id of user
-  
+
   //if user doesn't specify anything then give all the videos available in the db
   //if user give query then match the text with the title
   //if user give sortBy then sort the data with that (default : views)
@@ -33,6 +33,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const aggregationPipeline = [
     {
       $match: {
+        isPublished: true,
         $or: [
           {
             title: {
@@ -47,6 +48,37 @@ const getAllVideos = asyncHandler(async (req, res) => {
             },
           },
         ],
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+      },
+    },
+    {
+      $addFields: {
+        username: {
+          $arrayElemAt: ["$owner.userName", 0],
+        },
+        avatar: {
+          $arrayElemAt: ["$owner.avatar", 0],
+        },
+      },
+    },
+    {
+      $project: {
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        description: 1,
+        duration: 1,
+        views: 1,
+        username: 1,
+        avatar: 1,
+        updatedAt: 1,
       },
     },
     {
@@ -146,9 +178,75 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Given videoId doesn't exist");
   }
 
+  const detailsOfVideo = await Video.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscriberCount",
+            },
+          },
+          {
+            $addFields: {
+              subscribers: { $size: "$subscriberCount" },
+            },
+          },
+          {
+            $project: {
+              userName: 1,
+              subscribers: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        username: {
+          $arrayElemAt: ["$owner.userName", 0],
+        },
+        avatar: {
+          $arrayElemAt: ["$owner.avatar", 0],
+        },
+        subscribers: {
+          $arrayElemAt: ["$owner.subscribers", 0],
+        },
+      },
+    },
+    {
+      $project: {
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        description: 1,
+        duration: 1,
+        views: 1,
+        isPublished: 1,
+        username: 1,
+        avatar: 1,
+        subscribers: 1,
+        updatedAt: 1,
+      },
+    },
+  ]);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "Video fetched successfully"));
+    .json(new ApiResponse(200, detailsOfVideo, "Video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
